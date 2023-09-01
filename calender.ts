@@ -6,7 +6,7 @@ const getOAuthClient = async () => {
     const oAuth2Client = new GoogleAPI.auth.OAuth2(process.env.client_id, process.env.client_secret, process.env.redirect_uris);
 
     try {
-        const token = await fs.readFile(CALENDAR_TOKEN_PATH, 'utf8');
+        const token = await fsPromises.readFile(CALENDAR_TOKEN_PATH, 'utf8');
         oAuth2Client.setCredentials(JSON.parse(token));
         return oAuth2Client;
     } catch (error) {
@@ -35,7 +35,7 @@ const getEmailBody = (payload) => {
 
 const createEventFromEmail = async (title, receivedTime) => {
     const auth = await getOAuthClient();
-    const calendar = google.calendar({ version: 'v3', auth });
+    const calendar = GoogleAPI.calendar({ version: 'v3', auth });
 
     const startTime = new Date(receivedTime);
     const endTime = new Date(startTime.getTime() + 60 * 60 * 1000);
@@ -65,7 +65,7 @@ const createEventFromEmail = async (title, receivedTime) => {
 
 const markEmailAsRead = async (emailId) => {
     const auth = await getOAuthClient();
-    const gmail = google.gmail({ version: 'v1', auth });
+    const gmail = GoogleAPI.gmail({ version: 'v1', auth });
     try {
         await gmail.users.messages.modify({
             userId: 'me',
@@ -88,7 +88,7 @@ const main = async () => {
         return;
     }
 
-    const gmail = google.gmail({ version: 'v1', auth });
+    const gmail = GoogleAPI.gmail({ version: 'v1', auth });
     const EMAIL_KEYWORDS = ['deadline', 'submit by'];
     
     try {
