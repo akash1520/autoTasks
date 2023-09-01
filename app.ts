@@ -1,15 +1,13 @@
 const express = require('express');
 const { google } = require('googleapis');
 const fs = require('fs');
+require('dotenv').config();;
 require('./calender.ts');
 
 const app = express();
 
-// Load your credentials from the downloaded JSON file
-const credentials = require('./secrets.json');
-const { client_secret, client_id, redirect_uris } = credentials.installed;
 
-const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, redirect_uris[0]);
+const oAuth2Client = new google.auth.OAuth2(process.env.client_id, process.env.client_secret, process.env.redirect_uris);
 
 const SCOPES = [
     'https://www.googleapis.com/auth/gmail.modify',

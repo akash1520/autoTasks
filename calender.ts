@@ -1,15 +1,12 @@
-const { google } = require('googleapis');
-const fs = require('fs').promises;
-
-const TOKEN_PATH = './token.json';
-const credentials = require('./secrets.json');
+const { google: GoogleAPI } = require('googleapis');
+const fsPromises = require('fs').promises;
+const CALENDAR_TOKEN_PATH = './token.json';
 
 const getOAuthClient = async () => {
-    const { client_secret, client_id, redirect_uris } = credentials.installed;
-    const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, redirect_uris[0]);
+    const oAuth2Client = new GoogleAPI.auth.OAuth2(process.env.client_id, process.env.client_secret, process.env.redirect_uris);
 
     try {
-        const token = await fs.readFile(TOKEN_PATH, 'utf8');
+        const token = await fs.readFile(CALENDAR_TOKEN_PATH, 'utf8');
         oAuth2Client.setCredentials(JSON.parse(token));
         return oAuth2Client;
     } catch (error) {
@@ -87,7 +84,7 @@ const main = async () => {
     const auth = await getOAuthClient();
 
     if (!auth) {
-        setTimeout(main, 5 * 60 * 1000);  // Retry after 5 minutes if token doesn't exist
+        setTimeout(main,  60 * 1000);  // Retry after 5 minutes if token doesn't exist
         return;
     }
 
@@ -102,6 +99,8 @@ const main = async () => {
             return;
         }
 
+        let keywordMatched = false;
+
         for (const message of messages) {
             const { data: { payload, internalDate } } = await gmail.users.messages.get({ userId: 'me', id: message.id });
             const emailReceivedTime = parseInt(internalDate, 10);
@@ -110,16 +109,22 @@ const main = async () => {
             const hasKeyword = EMAIL_KEYWORDS.some((keyword) => emailBody.toLowerCase().includes(keyword));
             
             if (hasKeyword) {
+                keywordMatched = true;
                 const emailSubject = payload.headers.find((header) => header.name === 'Subject').value;
                 console.log(`Email Subject: ${emailSubject}`);
                 await createEventFromEmail(emailSubject, emailReceivedTime);
                 await markEmailAsRead(message.id);  // Mark the email as read
             }
         }
+
+        if (!keywordMatched) {
+            console.log("No unread emails found with the specified keywords.");
+        }
     } catch (err) {
         console.error('The API returned an error:', err);
     }
 };
+
 
 // Call the main function every 5 minutes
 setInterval(main, 5 * 60 * 1000);
