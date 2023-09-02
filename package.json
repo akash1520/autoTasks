@@ -4,7 +4,12 @@
   "description": "```\r AutoTasks is a tool which will automatically ready your emails and will add important tasks to your google calendar so that you don't miss any deadlines.\r ```",
   "main": "app.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "ts-node src/index.ts",
+    "dev": "nodemon src/index.ts",
+    "build": "tsc",
+    "lint": "eslint --fix src test",
+    "typecheck": "tsc --noEmit",
+    "vercel-build": "echo hello"
   },
   "author": "",
   "license": "ISC",

@@ -1,4 +1,4 @@
 /node_modules/
-token.json
+serviceAccount.json
 .env
 .vercel

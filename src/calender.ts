@@ -1,5 +1,27 @@
-const { google: GoogleAPI } = require('googleapis');
-const { getAllTokens } = require('./utils/firebase');
+import { google as GoogleAPI } from 'googleapis';
+import { getAllTokens } from './utils/firebase';
+
+interface Label {
+    id: string;
+    name: string;
+}
+
+interface Header {
+    name: string;
+    value: string;
+}
+
+interface Payload {
+    mimeType?: string;
+    body?: { data?: string };
+    parts?: Payload[];
+    headers?: Header[];
+}
+
+interface MessageData {
+    payload?: Payload;
+    internalDate?: string;
+}
 
 const getOAuthClient = async (tokenData) => {
     try {
@@ -80,13 +102,12 @@ const createEventFromEmail = async (title, receivedTime, tokenData) => {
     const startTime = new Date(receivedTime);
     const currentTime = new Date();  // Current date and time
     
-    // Check if startTime is in the future
-    if (startTime <= currentTime) {
-        console.log(`Skipping event creation as the deadline is in the past.`);
-        return;
-    }
-
     const endTime = new Date(startTime.getTime() + 60 * 60 * 1000);
+        // Check if startTime is in the future
+        if (endTime <= currentTime) {
+            console.log(`Skipping event creation as the deadline is in the past.`);
+            return;
+        }
     
     const event = {
         summary: title,
