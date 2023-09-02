@@ -1,33 +1,77 @@
 const { google: GoogleAPI } = require('googleapis');
 const { getAllTokens } = require('./utils/firebase');
+
 const getOAuthClient = async (tokenData) => {
-    const oAuth2Client = new GoogleAPI.auth.OAuth2(process.env.client_id, process.env.client_secret, process.env.redirect_uris);
-    
-    if (tokenData) {
-        oAuth2Client.setCredentials(tokenData);
-        return oAuth2Client;
-    } else {
-        console.error('Token data is missing');
+    try {
+        const oAuth2Client = new GoogleAPI.auth.OAuth2(process.env.client_id, process.env.client_secret, process.env.redirect_uris);
+        
+        if (tokenData) {
+            oAuth2Client.setCredentials(tokenData);
+            return oAuth2Client;
+        } else {
+            console.error('Token data is missing');
+            return null;
+        }
+    } catch (error) {
+        console.error('Error creating OAuth client:', error);
         return null;
     }
 };
 
-const getEmailBody = (payload) => {
-    if (payload.mimeType === 'text/plain' && payload.body && payload.body.data) {
-        return Buffer.from(payload.body.data, 'base64').toString('utf-8');
-    }
+const ensureLabelExists = async (auth) => {
+    const gmail = GoogleAPI.gmail({ version: 'v1', auth });
     
-    if (payload.parts && Array.isArray(payload.parts)) {
-        for (const part of payload.parts) {
-            const body = getEmailBody(part);
-            if (body) {
-                return body;
+    try {
+        // Fetch all labels
+        const { data: { labels } } = await gmail.users.labels.list({ userId: 'me' });
+        
+        // Check if 'autotasks' label exists
+        const label = labels.find(label => label.name === 'autoTasks');
+        
+        if (label) {
+            return label.id;  // Return existing label ID
+        } else {
+            // If not, create the label
+            const { data: newLabel } = await gmail.users.labels.create({
+                userId: 'me',
+                requestBody: {
+                    name: 'autoTasks',
+                    labelListVisibility: 'labelShow',
+                    messageListVisibility: 'show'
+                }
+            });
+            return newLabel.id;  // Return the new label ID
+        }
+    } catch (error) {
+        console.error('Error ensuring label existence:', error);
+        return null;  // Indicate failure with null
+    }
+};
+
+
+
+const getEmailBody = (payload) => {
+    try {
+        if (payload.mimeType === 'text/plain' && payload.body && payload.body.data) {
+            return Buffer.from(payload.body.data, 'base64').toString('utf-8');
+        }
+        
+        if (payload.parts && Array.isArray(payload.parts)) {
+            for (const part of payload.parts) {
+                const body = getEmailBody(part);
+                if (body) {
+                    return body;
+                }
             }
         }
-    }
 
-    return '';
+        return '';
+    } catch (error) {
+        console.error('Error extracting email body:', error);
+        return '';  // Return an empty string if there's an error
+    }
 };
+
 
 const createEventFromEmail = async (title, receivedTime, tokenData) => {
     const auth = await getOAuthClient(tokenData);
@@ -67,31 +111,6 @@ const createEventFromEmail = async (title, receivedTime, tokenData) => {
     }
 };
 
-
-const ensureLabelExists = async (auth) => {
-    const gmail = GoogleAPI.gmail({ version: 'v1', auth });
-    
-    // Fetch all labels
-    const { data: { labels } } = await gmail.users.labels.list({ userId: 'me' });
-    
-    // Check if 'autotasks' label exists
-    const label = labels.find(label => label.name === 'autoTasks');
-    
-    if (label) {
-        return label.id;  // Return existing label ID
-    } else {
-        // If not, create the label
-        const { data: newLabel } = await gmail.users.labels.create({
-            userId: 'me',
-            requestBody: {
-                name: 'autoTasks',
-                labelListVisibility: 'labelShow',
-                messageListVisibility: 'show'
-            }
-        });
-        return newLabel.id;  // Return the new label ID
-    }
-};
 
 const markEmailAsRead = async (emailId, tokenData) => {
     const auth = await getOAuthClient(tokenData);
@@ -164,13 +183,18 @@ const main = async (tokenData) => {
 };
 
 const runForAllTokens = async () => {
-    const tokensData = await getAllTokens();
+    try {
+        const tokensData = await getAllTokens();
 
-    // Start the infinite check for each token
-    tokensData.forEach(token => {
-        main(token.data);  // This will now recursively call itself for each token every 5 minutes
-    });
+        // Start the infinite check for each token
+        tokensData.forEach(token => {
+            main(token.data);  // This will now recursively call itself for each token every 5 minutes
+        });
+    } catch (error) {
+        console.error('Error running for all tokens:', error);
+    }
 };
+
 
 
 runForAllTokens();
